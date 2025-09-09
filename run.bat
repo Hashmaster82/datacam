@@ -1,49 +1,55 @@
 @echo off
 setlocal
 
-REM --- Настройки ---
+REM --- Конфигурация ---
 set REPO_URL=https://github.com/Hashmaster82/datacam.git
 set REPO_DIR=datacam
 set VENV_DIR=venv
 set MAIN_SCRIPT=main.py
 set REQ_FILE=requirements.txt
 
+REM --- Заголовок ---
+cls
+echo ==================================================
+echo   Запуск приложения Datacam
+echo   Проверка обновлений и зависимостей...
+echo ==================================================
+echo.
+
 REM --- Шаг 1: Проверка наличия Git ---
-echo Проверка наличия Git...
+echo [1/5] Проверка наличия Git...
 git --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo ❌ Git не найден.
-    echo Пожалуйста, установите Git: https://git-scm.com/downloads
+    echo ❌ КРИТИЧЕСКАЯ ОШИБКА: Git не установлен.
+    echo Пожалуйста, установите Git с официального сайта: https://git-scm.com/downloads
     echo После установки перезапустите этот скрипт.
     echo.
-    pause
-    exit /b 1
+    goto :END
 )
 echo ✅ Git найден.
 
 REM --- Шаг 2: Проверка и клонирование/обновление репозитория ---
+echo [2/5] Проверка репозитория...
 if not exist "%REPO_DIR%" (
-    echo.
-    echo Клонирование репозитория: %REPO_URL%
+    echo     Клонирование репозитория...
     git clone %REPO_URL%
     if %ERRORLEVEL% NEQ 0 (
         echo.
-        echo ❌ Не удалось клонировать репозиторий.
-        pause
-        exit /b 1
+        echo ❌ КРИТИЧЕСКАЯ ОШИБКА: Не удалось клонировать репозиторий.
+        echo Проверьте URL репозитория и подключение к интернету.
+        echo.
+        goto :END
     )
     echo ✅ Репозиторий успешно клонирован.
 ) else (
-    echo.
-    echo Обновление репозитория из %REPO_URL%...
+    echo     Обновление репозитория...
     cd "%REPO_DIR%"
-    git pull origin main
+    git pull origin main 2>nul
     if %ERRORLEVEL% NEQ 0 (
-        git pull origin master
+        git pull origin master 2>nul
         if %ERRORLEVEL% NEQ 0 (
-            echo.
-            echo ⚠️  Не удалось обновить репозиторий. Продолжаем с текущей версией.
+            echo     ⚠️  Не удалось обновить репозиторий. Продолжаем с текущей версией.
         ) else (
             echo ✅ Репозиторий успешно обновлен (ветка master).
         )
@@ -57,55 +63,70 @@ REM --- Шаг 3: Переход в директорию проекта ---
 cd "%REPO_DIR%"
 
 REM --- Шаг 4: Создание и активация виртуального окружения ---
+echo [3/5] Проверка виртуального окружения...
 if not exist "%VENV_DIR%" (
-    echo.
-    echo Создание виртуального окружения...
+    echo     Создание виртуального окружения...
     python -m venv %VENV_DIR%
     if %ERRORLEVEL% NEQ 0 (
         echo.
-        echo ❌ Не удалось создать виртуальное окружение.
-        pause
-        exit /b 1
+        echo ❌ КРИТИЧЕСКАЯ ОШИБКА: Не удалось создать виртуальное окружение.
+        echo Убедитесь, что Python установлен корректно.
+        echo.
+        goto :END
     )
     echo ✅ Виртуальное окружение создано.
 )
 
-echo Активация виртуального окружения...
-call %VENV_DIR%\Scripts\activate.bat
+echo     Активация виртуального окружения...
+call %VENV_DIR%\Scripts\activate.bat >nul
 
 REM --- Шаг 5: Установка или обновление зависимостей ---
+echo [4/5] Проверка зависимостей...
 if exist "%REQ_FILE%" (
-    echo.
-    echo Установка зависимостей из %REQ_FILE%...
-    pip install --upgrade pip >nul
-    pip install -r %REQ_FILE%
+    pip install --upgrade pip >nul 2>&1
+    pip install -r %REQ_FILE% >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
         echo.
-        echo ❌ Произошла ошибка при установке зависимостей.
-        pause
-        exit /b 1
+        echo ⚠️  Предупреждение: Не удалось установить некоторые зависимости.
+        echo Попробуйте запустить 'install_dependencies.bat' от имени администратора.
+        echo Продолжаем запуск...
+        echo.
+    ) else (
+        echo ✅ Все зависимости установлены.
     )
-    echo ✅ Зависимости установлены.
 ) else (
     echo.
-    echo ⚠️  Файл %REQ_FILE% не найден. Продолжаем запуск, но могут возникнуть ошибки.
+    echo ⚠️  Предупреждение: Файл '%REQ_FILE%' не найден.
+    echo Зависимости могут быть не установлены.
+    echo.
 )
 
 REM --- Шаг 6: Запуск приложения ---
+echo [5/5] Запуск приложения...
 echo.
-echo Запуск приложения Datacam...
+echo ==================================================
+echo   Datacam запущен. Закройте это окно для выхода.
+echo ==================================================
+echo.
+
 python "%MAIN_SCRIPT%"
 
+REM --- Обработка ошибки запуска ---
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo ❌ Произошла ошибка при запуске приложения.
+    echo ❌ КРИТИЧЕСКАЯ ОШИБКА: Не удалось запустить '%MAIN_SCRIPT%'.
+    echo Убедитесь, что файл существует и в нем нет синтаксических ошибок.
+    echo.
     pause
-    exit /b 1
+    goto :END
 )
 
-REM --- Завершение ---
+REM --- Успешное завершение ---
 echo.
-echo Приложение завершило работу.
+echo ==================================================
+echo   Datacam завершил работу.
+echo ==================================================
 pause
 
-endlocal
+:END
+end
