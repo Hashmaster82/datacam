@@ -12,14 +12,8 @@ if %errorlevel% equ 0 (
     echo.
 )
 
-echo Проверка установленных библиотек...
-pip list | findstr "opencv-python" >nul
-if %errorlevel% neq 0 (
-    echo Библиотеки не установлены!
-    echo Запустите install_requirements.bat для установки
-    pause
-    exit /b 1
-)
+echo Проверка и установка зависимостей...
+pip install -r requirements.txt
 
 echo.
 echo Запуск программы IP Camera Manager...
