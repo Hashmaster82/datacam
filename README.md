@@ -30,7 +30,7 @@
 
 1.  **Клонируйте репозиторий:**
     ```bash
-    git clone https://github.com/ваш-username/datacam.git
+    git clone https://github.com/Hashmaster82/datacam.git
     cd datacam
     ```
 
