@@ -5,15 +5,11 @@ git fetch origin
 git status -uno | findstr "behind" >nul
 if %errorlevel% equ 0 (
     echo Обнаружены обновления в удаленном репозитории!
+    echo Выполняется автоматическое обновление кода...
+    git pull origin
     echo.
-    set /p choice="Хотите обновить код? (y/n): "
-    if /i "%choice%"=="y" (
-        echo Выполняется обновление кода...
-        git pull origin
-        echo.
-        echo Код обновлен!
-        echo.
-    )
+    echo Код успешно обновлен!
+    echo.
 )
 
 echo Проверка установленных библиотек...
@@ -27,6 +23,6 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Запуск программы IP Camera Manager...
-python datacam.py
+python main.py
 
 pause
