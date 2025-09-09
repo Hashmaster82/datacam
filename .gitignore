@@ -1,0 +1,45 @@
+# Байт-код Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения
+venv/
+env/
+.venv/
+ENV/
+
+# Файлы операционной системы
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Логи и базы данных
+*.log
+*.sqlite3
+*.db
+
+# Файлы данных приложения (их нужно создавать при первом запуске, а не хранить в репозитории)
+settings.json
+main.json
+models.json
+screenshots/
+
+# Временные файлы
+temp_*.jpg
+*.tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Архивы и резервные копии
+*.bak
+*.backup
+*_backup_*.json
