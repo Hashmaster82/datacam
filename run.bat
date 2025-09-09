@@ -1,22 +1,22 @@
 @echo off
-echo Проверка обновлений репозитория...
+echo Checking for repository updates...
 git fetch origin
 
 git status -uno | findstr "behind" >nul
 if %errorlevel% equ 0 (
-    echo Обнаружены обновления в удаленном репозитории!
-    echo Выполняется автоматическое обновление кода...
+    echo Updates found in remote repository!
+    echo Performing automatic code update...
     git pull origin
     echo.
-    echo Код успешно обновлен!
+    echo Code successfully updated!
     echo.
 )
 
-echo Проверка и установка зависимостей...
+echo Checking and installing dependencies...
 pip install -r requirements.txt
 
 echo.
-echo Запуск программы IP Camera Manager...
+echo Starting IP Camera Manager...
 python main.py
 
 pause
