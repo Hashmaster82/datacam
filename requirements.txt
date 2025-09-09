@@ -1,5 +1,4 @@
-opencv-python
-Pillow
-fpdf2
-openpyxl
-gitpython
+opencv-python==4.9.0.80
+pillow==10.2.0
+fpdf2==2.7.7
+openpyxl==3.1.2
