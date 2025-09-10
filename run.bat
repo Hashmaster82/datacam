@@ -18,5 +18,3 @@ pip install -r requirements.txt
 echo.
 echo Starting IP Camera Manager...
 python main.py
-
-pause
