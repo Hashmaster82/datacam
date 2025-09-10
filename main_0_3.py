@@ -12,9 +12,11 @@ import time
 import shutil
 from PIL import Image, ImageTk, ImageDraw
 import io
-import tempfile
+import tempfile  # Добавляем для безопасного создания временных файлов
+
 
 class LoadingWindow:
+    """Модальное окно 'Пожалуйста, подождите...', отображающееся во время длительных операций."""
     def __init__(self, parent, title="Подождите", message="Выполняется операция, пожалуйста, подождите..."):
         self.parent = parent
         self.window = tk.Toplevel(parent)
@@ -24,6 +26,7 @@ class LoadingWindow:
         self.window.grab_set()
         self.window.resizable(False, False)
         center_window(self.window, parent)
+        # Путь к иконке
         ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ico.jpg")
         try:
             pil_image = Image.open(ico_path)
@@ -36,29 +39,37 @@ class LoadingWindow:
             print(f"Не удалось загрузить ico.jpg для окна загрузки: {e}")
         msg_label = tk.Label(self.window, text=message, font=("Arial", 12), wraplength=300, justify=tk.CENTER)
         msg_label.pack(pady=10)
+        # Анимация точек (опционально)
         self.dots = 0
         self.msg_label = msg_label
         self.animate_dots()
+        # Блокируем взаимодействие с родительским окном
         self.window.focus_set()
 
     def animate_dots(self):
+        """Анимирует точки в конце сообщения для визуального эффекта ожидания."""
         dots = "." * self.dots
         self.msg_label.config(text=f"Выполняется операция, пожалуйста, подождите{dots}")
         self.dots = (self.dots + 1) % 4
         self.window.after(500, self.animate_dots)
 
     def destroy(self):
+        """Закрывает окно загрузки."""
         if self.window.winfo_exists():
             self.window.destroy()
 
+
+# Пути по умолчанию
 DEFAULT_DATA_DIR = r"\\fs\share_tech\IT\py_projects\datacam"
 SETTINGS_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 
+# Настройки шрифтов
 FONT_SIZE = 11
 FONT_FAMILY = "Arial"
 LARGE_FONT = (FONT_FAMILY, FONT_SIZE)
 BOLD_FONT = (FONT_FAMILY, FONT_SIZE, "bold")
 
+# Предзаполненные модели с реальными RTSP-ссылками из интернета
 DEFAULT_MODELS = {
     "Hikvision DS-I200(D)": {
         "rtsp_template": "rtsp://{user}:{password}@{ip}/ISAPI/Streaming/Channels/101",
@@ -152,6 +163,7 @@ DEFAULT_MODELS = {
     }
 }
 
+# Загрузка настроек
 def load_settings():
     if os.path.exists(SETTINGS_JSON):
         with open(SETTINGS_JSON, 'r', encoding='utf-8') as f:
@@ -165,6 +177,7 @@ def save_settings(settings):
     with open(SETTINGS_JSON, 'w', encoding='utf-8') as f:
         json.dump(settings, f, ensure_ascii=False, indent=4)
 
+# ✅ ФУНКЦИИ ДЛЯ РАБОТЫ С КАТАЛОГОМ ДАННЫХ
 def get_main_json_path(data_dir):
     return os.path.join(data_dir, "main.json")
 
@@ -172,9 +185,11 @@ def get_models_json_path(data_dir):
     return os.path.join(data_dir, "models.json")
 
 def get_screenshots_dir(data_dir):
+    """Возвращает путь к каталогу для скриншотов внутри каталога данных."""
     return os.path.join(data_dir, "screenshots")
 
 def ensure_data_files_exist(data_dir):
+    """Проверяет наличие main.json и models.json в указанной директории. Создает их, если отсутствуют."""
     main_path = get_main_json_path(data_dir)
     models_path = get_models_json_path(data_dir)
     created_files = []
@@ -186,12 +201,14 @@ def ensure_data_files_exist(data_dir):
         with open(models_path, 'w', encoding='utf-8') as f:
             json.dump(DEFAULT_MODELS, f, ensure_ascii=False, indent=4)
         created_files.append("models.json")
+    # ✅ Создаем каталог для скриншотов, если его нет
     screenshots_dir = get_screenshots_dir(data_dir)
     if not os.path.exists(screenshots_dir):
         os.makedirs(screenshots_dir, exist_ok=True)
         created_files.append("Каталог 'screenshots'")
     return created_files
 
+# Загрузка/инициализация моделей
 def load_models(data_dir):
     models_path = get_models_json_path(data_dir)
     if os.path.exists(models_path):
@@ -207,6 +224,7 @@ def save_models(models, data_dir):
     with open(models_path, 'w', encoding='utf-8') as f:
         json.dump(models, f, ensure_ascii=False, indent=4)
 
+# Загрузка основной БД
 def load_cameras(data_dir):
     main_path = get_main_json_path(data_dir)
     if os.path.exists(main_path):
@@ -229,6 +247,7 @@ def save_cameras(cameras, data_dir):
     with open(main_path, 'w', encoding='utf-8') as f:
         json.dump(cameras, f, ensure_ascii=False, indent=4)
 
+# Создание скриншота с RTSP
 def capture_rtsp_frame(rtsp_url, save_path=None):
     try:
         rtsp_url = rtsp_url.strip()
@@ -255,19 +274,29 @@ def capture_rtsp_frame(rtsp_url, save_path=None):
         print(f"Ошибка при захвате кадра: {str(e)}")
         return None
 
+# ✅ Функция для сохранения скриншота конкретной камеры
 def save_camera_screenshot(rtsp_url, camera_info, data_dir):
+    """
+    Делает скриншот и сохраняет его в каталог 'screenshots' внутри data_dir.
+    Имя файла формируется на основе информации о камере.
+    Возвращает путь к сохраненному файлу или None в случае ошибки.
+    """
     if not rtsp_url:
         return None
+    # ✅ Используем каталог внутри data_dir
     screenshot_dir = get_screenshots_dir(data_dir)
     os.makedirs(screenshot_dir, exist_ok=True)
+    # Формируем имя файла: заменяем недопустимые символы
     safe_name = f"{camera_info.get('line', 'unknown')}_{camera_info.get('ip', 'noip')}_{camera_info.get('model', 'nomodel')}"
     safe_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in safe_name)
-    safe_name = safe_name[:100]
+    safe_name = safe_name[:100]  # Ограничиваем длину
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{safe_name}_{timestamp}.jpg"
     filepath = os.path.join(screenshot_dir, filename)
+    # Делаем и сохраняем скриншот
     pil_image = capture_rtsp_frame(rtsp_url)
     if pil_image:
+        # Опционально: добавляем текст с информацией о камере
         draw = ImageDraw.Draw(pil_image)
         try:
             from PIL import ImageFont
@@ -276,11 +305,13 @@ def save_camera_screenshot(rtsp_url, camera_info, data_dir):
             font = None
         camera_text = f"{camera_info.get('line', '')} | {camera_info.get('model', '')} | {camera_info.get('ip', '')}"
         draw.text((5, 5), camera_text, fill="white", font=font)
+        # Сохраняем
         pil_image.save(filepath, "JPEG", quality=90)
         return filepath
     else:
         return None
 
+# Экспорт в Excel
 def export_to_excel(cameras, filepath):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -320,9 +351,14 @@ def export_to_excel(cameras, filepath):
     wb.save(filepath)
     messagebox.showinfo("Экспорт", f"Данные успешно экспортированы в Excel: {filepath}")
 
+# ✅ ПОЛНОСТЬЮ ПЕРЕПИСАННАЯ ФУНКЦИЯ ЭКСПОРТА В PDF (Исправлена ошибка с одинаковыми скриншотами)
 def export_to_pdf(cameras, data_dir, filepath):
-    pdf = FPDF(orientation='L')
+    """
+    Экспортирует данные камер в PDF в виде подробного досье с миниатюрами скриншотов.
+    """
+    pdf = FPDF(orientation='L')  # Альбомная ориентация
     pdf.add_page()
+    # Регистрация шрифта
     font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ChakraPetch-Regular.ttf")
     if os.path.exists(font_path):
         try:
@@ -334,10 +370,13 @@ def export_to_pdf(cameras, data_dir, filepath):
     else:
         pdf.set_font("Arial", size=8)
         messagebox.showwarning("Шрифт", "Не найден ChakraPetch-Regular.ttf — кириллица может отображаться некорректно.")
+    # Заголовок отчета
     pdf.cell(0, 10, txt="Детальное досье IP камер", ln=True, align='C')
     pdf.ln(10)
+    # Определение ширины столбцов для альбомной ориентации (всего ~277 мм)
+    # ✅ УБРАНЫ СТОЛБЦЫ "sn" и "fw" для экономии места (по вашему первоначальному запросу)
     col_widths = {
-        "screenshot": 25,
+        "screenshot": 25,   # Миниатюра скриншота
         "line": 25,
         "model": 35,
         "ip": 25,
@@ -345,9 +384,11 @@ def export_to_pdf(cameras, data_dir, filepath):
         "web_pass": 20,
         "stream_user": 20,
         "stream_pass": 20,
-        "mac": 32,
-        "comment": 55
+        "mac": 32, # Увеличим немного, так как убрали два столбца
+        "comment": 55 # Увеличим значительно, так как это часто самое информативное поле
     }
+    # Заголовки таблицы
+    # ✅ УБРАНЫ СТОЛБЦЫ "Серийный №" и "Прошивка"
     headers = [
         ("Скрин", col_widths["screenshot"]),
         ("Линия", col_widths["line"]),
@@ -358,15 +399,17 @@ def export_to_pdf(cameras, data_dir, filepath):
         ("Поток логин", col_widths["stream_user"]),
         ("Поток пароль", col_widths["stream_pass"]),
         ("MAC-адрес", col_widths["mac"]),
-        ("Комментарий", col_widths["comment"])
+        ("Комментарий", col_widths["comment"]) # Добавлен столбец Комментарий
     ]
     for header, width in headers:
         pdf.cell(width, 10, header, border=1, align='C')
     pdf.ln()
+    # Загрузка моделей для формирования RTSP URL
     models = load_models(data_dir)
     for cam in cameras:
+        # ✅ ФОРМИРУЕМ ДАННЫЕ СТРОКИ БЕЗ "sn" и "fw"
         row_data = [
-            ("", col_widths["screenshot"]),
+            ("", col_widths["screenshot"]),  # Placeholder для скриншота
             (cam.get("line", "")[:20], col_widths["line"]),
             (cam.get("model", "")[:30], col_widths["model"]),
             (cam.get("ip", "")[:15], col_widths["ip"]),
@@ -375,45 +418,62 @@ def export_to_pdf(cameras, data_dir, filepath):
             (cam.get("stream_user", "")[:12], col_widths["stream_user"]),
             (cam.get("stream_pass", "")[:12], col_widths["stream_pass"]),
             (cam.get("mac", "")[:20], col_widths["mac"]),
-            (cam.get("comment", "")[:40], col_widths["comment"])
+            (cam.get("comment", "")[:40], col_widths["comment"]) # Добавлен комментарий
         ]
+        # Получаем RTSP URL для скриншота
         rtsp_url = ""
         model_name = cam.get("model", "")
         model_data = models.get(model_name, {})
         rtsp_template = model_data.get("rtsp_template", "")
         if rtsp_template and cam.get("ip"):
+            # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
             user = urllib.parse.quote(cam.get("stream_user", "admin"), safe='@$')
             password = urllib.parse.quote(cam.get("stream_pass", "admin"), safe='@$')
             ip = cam.get("ip", "")
             rtsp_url = rtsp_template.format(user=user, password=password, ip=ip)
+        # Пытаемся получить скриншот ИМЕННО ЭТОЙ КАМЕРЫ
         pil_image = None
         if rtsp_url:
             pil_image = capture_rtsp_frame(rtsp_url)
+        # Обработка скриншота
         if pil_image:
+            # Изменяем размер до 64x36 (пропорционально для PDF ячейки 25x10)
             pil_image.thumbnail((64, 36), Image.Resampling.LANCZOS)
+            # Конвертируем в RGB если необходимо
             if pil_image.mode in ("RGBA", "P"):
                 pil_image = pil_image.convert("RGB")
+            # ✅ ГЕНЕРИРУЕМ УНИКАЛЬНОЕ ИМЯ ВРЕМЕННОГО ФАЙЛА ДЛЯ КАЖДОЙ КАМЕРЫ
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
                 temp_img_path = tmp_file.name
+            # Сохраняем во временный файл
             pil_image.save(temp_img_path, "JPEG", quality=85)
+            # Вставляем изображение в первую ячейку
             try:
-                pdf.image(temp_img_path, x=pdf.get_x()+2, y=pdf.get_y()+1, w=21, h=8)
+                # ✅ ИСПРАВЛЕНО: Используем уникальный путь для каждой камеры
+                pdf.image(temp_img_path, x=pdf.get_x()+2, y=pdf.get_y()+1, w=21, h=8) # w=21, h=8 чтобы был отступ от границ ячейки
                 pdf.cell(col_widths["screenshot"], 10, "", border=1)
             except Exception as img_e:
                 print(f"Ошибка вставки изображения: {img_e}")
                 pdf.cell(col_widths["screenshot"], 10, "Н/Д", border=1, align='C')
             finally:
+                # Удаляем временный файл
                 if os.path.exists(temp_img_path):
                     os.remove(temp_img_path)
         else:
             pdf.cell(col_widths["screenshot"], 10, "Н/Д", border=1, align='C')
+        # Остальные ячейки
         for i, (text, width) in enumerate(row_data[1:], start=1):
             pdf.cell(width, 10, text, border=1)
         pdf.ln()
     pdf.output(filepath)
     messagebox.showinfo("Экспорт", f"Подробное досье успешно экспортировано в PDF: {filepath}")
 
+# ✅ НОВАЯ ФУНКЦИЯ: ГЕНЕРАЦИЯ ГАЛЕРЕИ (с сохранением скриншотов в data_dir/screenshots)
 def generate_gallery(cameras, data_dir, filepath):
+    """
+    Генерирует изображение-коллаж (галерею) со скриншотами всех камер.
+    Автоматически сохраняет скриншоты каждой камеры в подкаталог 'screenshots' внутри data_dir.
+    """
     if not cameras:
         messagebox.showwarning("Галерея", "Нет камер для создания галереи.")
         return
@@ -425,13 +485,16 @@ def generate_gallery(cameras, data_dir, filepath):
         model_data = models.get(model_name, {})
         rtsp_template = model_data.get("rtsp_template", "")
         if rtsp_template and cam.get("ip"):
+            # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
             user = urllib.parse.quote(cam.get("stream_user", "admin"), safe='@$')
             password = urllib.parse.quote(cam.get("stream_pass", "admin"), safe='@$')
             ip = cam.get("ip", "")
             rtsp_url = rtsp_template.format(user=user, password=password, ip=ip)
         if rtsp_url:
+            # ✅ Сохраняем скриншот в каталог data_dir/screenshots
             saved_path = save_camera_screenshot(rtsp_url, cam, data_dir)
             if saved_path:
+                # Загружаем сохраненный файл для галереи
                 try:
                     pil_image = Image.open(saved_path)
                     pil_image.thumbnail((320, 180), Image.Resampling.LANCZOS)
@@ -441,6 +504,7 @@ def generate_gallery(cameras, data_dir, filepath):
     if not screenshots:
         messagebox.showwarning("Галерея", "Не удалось получить ни одного скриншота.")
         return
+    # Создаем коллаж
     images_per_row = 3
     rows = (len(screenshots) + images_per_row - 1) // images_per_row
     cell_width, cell_height = 320, 180
@@ -469,6 +533,7 @@ def center_window(win, parent):
     y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
     win.geometry(f"+{x}+{y}")
 
+
 class ModelSelectorWindow:
     def __init__(self, parent, current_value, models_list, callback):
         self.parent = parent
@@ -494,6 +559,7 @@ class ModelSelectorWindow:
             self.callback(selected_model)
         self.window.destroy()
 
+
 class RTSPDetailWindow:
     def __init__(self, parent, camera_index, cameras, models, app_instance, data_dir):
         self.parent = parent
@@ -506,11 +572,10 @@ class RTSPDetailWindow:
         self.rtsp_url = ""
         self.screenshot_label = None
         self.photo = None
-        self.current_pil_image = None
         self.use_web_creds = tk.BooleanVar(value=False)
         self.window = tk.Toplevel(parent)
         self.window.title(f"Детали камеры: {self.camera.get('model', 'Неизвестно')} ({self.camera.get('ip', 'Нет IP')})")
-        self.window.geometry("900x850")
+        self.window.geometry("900x800")
         center_window(self.window, parent)
         self.window.transient(parent)
         self.window.grab_set()
@@ -542,6 +607,7 @@ class RTSPDetailWindow:
             ("Прошивка", "fw"),
             ("Комментарий", "comment")
         ]
+
         self.entries = {}
         row = 0
         for i, (label_text, key) in enumerate(fields):
@@ -550,16 +616,6 @@ class RTSPDetailWindow:
             entry = tk.Entry(scrollable_frame, textvariable=var, width=60, font=LARGE_FONT)
             entry.grid(row=row, column=1, sticky="w", padx=10, pady=5)
             self.entries[key] = var
-            # Универсальная привязка для Ctrl+C/V на русской и английской раскладке
-            def handle_ctrl_c_v(event, entry_ref=entry):
-                if event.state & 0x4:  # Ctrl нажат
-                    if event.keycode == 54:  # Клавиша 'C' / 'С'
-                        entry_ref.event_generate("<<Copy>>")
-                        return "break"
-                    elif event.keycode == 58:  # Клавиша 'V' / 'М'
-                        entry_ref.event_generate("<<Paste>>")
-                        return "break"
-            entry.bind("<Key>", handle_ctrl_c_v)
             row += 1
 
         tk.Label(scrollable_frame, text="Модель:", font=BOLD_FONT, anchor="w").grid(row=row, column=0, sticky="w", pady=5, padx=10)
@@ -573,9 +629,11 @@ class RTSPDetailWindow:
         rtsp_template = model_data.get("rtsp_template", "")
         if rtsp_template and self.camera.get("ip"):
             if self.use_web_creds.get():
+                # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
                 user = urllib.parse.quote(self.camera.get("web_user", "admin"), safe='@$')
                 password = urllib.parse.quote(self.camera.get("web_pass", "admin"), safe='@$')
             else:
+                # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
                 user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
                 password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
             ip = self.camera.get("ip", "")
@@ -602,16 +660,11 @@ class RTSPDetailWindow:
 
         tk.Label(scrollable_frame, text="Скриншот с камеры:", font=BOLD_FONT).grid(row=row, column=0, columnspan=2, sticky="w", pady=(10,5), padx=10)
         row += 1
-
         self.screenshot_frame = tk.Frame(scrollable_frame, width=720, height=405, relief="sunken", bd=1)
         self.screenshot_frame.grid(row=row, column=0, columnspan=2, padx=10, pady=5)
         self.screenshot_frame.grid_propagate(False)
         self.screenshot_label = tk.Label(self.screenshot_frame, text="Нажмите 'Сделать скриншот'", font=LARGE_FONT)
         self.screenshot_label.place(relx=0.5, rely=0.5, anchor="center")
-        row += 1
-
-        # Кнопка для сохранения текущего скриншота
-        tk.Button(scrollable_frame, text="💾 Сохранить скриншот", command=self.save_current_screenshot, font=LARGE_FONT, bg="#f0d0a0").grid(row=row, column=0, columnspan=2, pady=5)
         row += 1
 
         btn_frame_bottom = tk.Frame(scrollable_frame, pady=20)
@@ -627,9 +680,11 @@ class RTSPDetailWindow:
             self.rtsp_url = "Не удалось сформировать RTSP-ссылку"
         else:
             if self.use_web_creds.get():
+                # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
                 user = urllib.parse.quote(self.camera.get("web_user", "admin"), safe='@$')
                 password = urllib.parse.quote(self.camera.get("web_pass", "admin"), safe='@$')
             else:
+                # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
                 user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
                 password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
             ip = self.camera.get("ip", "")
@@ -654,23 +709,22 @@ class RTSPDetailWindow:
             if self.screenshot_label and self.screenshot_label.winfo_exists():
                 self.screenshot_label.config(text="❌ Не удалось загрузить скриншот: нет шаблона RTSP или IP")
             return
-
         if self.use_web_creds.get():
+            # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
             user = urllib.parse.quote(self.camera.get("web_user", "admin"), safe='@$')
             password = urllib.parse.quote(self.camera.get("web_pass", "admin"), safe='@$')
         else:
+            # ✅ ИСПРАВЛЕНО: используем quote с safe-символами, чтобы $ и @ не кодировались
             user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
             password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
         ip = self.camera.get("ip", "")
         rtsp_url_for_screenshot = rtsp_template.format(user=user, password=password, ip=ip)
-
         if self.screenshot_label and self.screenshot_label.winfo_exists():
             self.screenshot_label.config(text="Загрузка скриншота...")
-
         pil_image = capture_rtsp_frame(rtsp_url_for_screenshot)
         if pil_image:
+            # ✅ Опционально: сохраняем скриншот в каталог
             save_camera_screenshot(rtsp_url_for_screenshot, self.camera, self.data_dir)
-            self.current_pil_image = pil_image.copy()
             pil_image.thumbnail((720, 405))
             self.photo = ImageTk.PhotoImage(pil_image)
             if self.screenshot_label and self.screenshot_label.winfo_exists():
@@ -678,34 +732,6 @@ class RTSPDetailWindow:
         else:
             if self.screenshot_label and self.screenshot_label.winfo_exists():
                 self.screenshot_label.config(text="❌ Не удалось получить кадр с камеры")
-
-    def save_current_screenshot(self):
-        if not hasattr(self, 'photo') or self.photo is None:
-            messagebox.showwarning("Ошибка", "Нет скриншота для сохранения. Сначала сделайте скриншот.")
-            return
-
-        filepath = filedialog.asksaveasfilename(
-            defaultextension=".jpg",
-            filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")],
-            title="Сохранить скриншот"
-        )
-
-        if not filepath:
-            return
-
-        try:
-            if not hasattr(self, 'current_pil_image') or self.current_pil_image is None:
-                raise Exception("Исходное изображение не найдено.")
-
-            if filepath.lower().endswith('.png'):
-                self.current_pil_image.save(filepath, "PNG")
-            else:
-                self.current_pil_image.save(filepath, "JPEG", quality=90)
-
-            messagebox.showinfo("Успех", f"Скриншот успешно сохранен:\n{filepath}")
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить скриншот:\n{str(e)}")
 
     def save_changes(self):
         for key, var in self.entries.items():
@@ -717,145 +743,191 @@ class RTSPDetailWindow:
         messagebox.showinfo("Успех", "Данные камеры сохранены")
         self.window.destroy()
 
-class CameraDossierWindow:
-    """Окно для формирования и отображения досье на выбранную камеру."""
-    def __init__(self, parent, camera, models, data_dir):
+
+# ✅ НОВЫЙ КЛАСС: Диалоговое окно для подключения по ONVIF
+class OnvifConnectionDialog:
+    def __init__(self, parent, camera_index, cameras, models, app_instance, data_dir):
         self.parent = parent
-        self.camera = camera
+        self.camera_index = camera_index
+        self.cameras = cameras
         self.models = models
+        self.app = app_instance
         self.data_dir = data_dir
+        self.camera = cameras[camera_index].copy()
+        self.onvif_url = ""
+        self.screenshot_label = None
+        self.photo = None
+        self.use_web_creds = tk.BooleanVar(value=False)
         self.window = tk.Toplevel(parent)
-        self.window.title(f"📄 Досье камеры: {camera.get('line', 'Неизвестно')} ({camera.get('ip', 'Нет IP')})")
-        self.window.geometry("800x900")
+        self.window.title(f"Подключение к IP-камере: {self.camera.get('model', 'Неизвестно')} ({self.camera.get('ip', 'Нет IP')})")
+        self.window.geometry("400x500")
         center_window(self.window, parent)
         self.window.transient(parent)
         self.window.grab_set()
 
-        # Создаем Canvas для прокрутки
-        canvas = tk.Canvas(self.window)
-        scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # Стили для темного интерфейса
+        dark_bg = "#2c2c2c"
+        light_fg = "#ffffff"
+        entry_bg = "#3a3a3a"
+        button_bg = "#4a4a4a"
+        button_active_bg = "#6a6a6a"
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        self.window.configure(bg=dark_bg)
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Основной фрейм
+        main_frame = tk.Frame(self.window, bg=dark_bg, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Заголовок
-        tk.Label(scrollable_frame, text="📄 Досье камеры", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=10, sticky="w", padx=10)
-
-        row = 1
-        # Основная информация
-        info_fields = [
-            ("Линия", self.camera.get("line", "")),
-            ("Модель", self.camera.get("model", "")),
-            ("IP-адрес", self.camera.get("ip", "")),
-            ("Логин Web", self.camera.get("web_user", "")),
-            ("Пароль Web", self.camera.get("web_pass", "")),
-            ("Логин потока", self.camera.get("stream_user", "")),
-            ("Пароль потока", self.camera.get("stream_pass", "")),
-            ("Серийный номер", self.camera.get("sn", "")),
-            ("MAC-адрес", self.camera.get("mac", "")),
-            ("Прошивка", self.camera.get("fw", "")),
-            ("Комментарий", self.camera.get("comment", ""))
+        # Поля для ввода
+        fields = [
+            ("Адрес", "ip"),
+            ("Порт", "port"),
+            ("Имя", "username"),
+            ("Пароль", "password"),
+            ("Транспорт", "transport"),
+            ("Источник", "source")
         ]
 
-        for label, value in info_fields:
-            tk.Label(scrollable_frame, text=f"{label}:", font=BOLD_FONT, anchor="w").grid(row=row, column=0, sticky="w", pady=5, padx=10)
-            tk.Label(scrollable_frame, text=value, font=LARGE_FONT, anchor="w", wraplength=500, justify="left").grid(row=row, column=1, sticky="w", pady=5, padx=10)
+        self.entries = {}
+        row = 0
+        for label_text, key in fields:
+            tk.Label(main_frame, text=label_text, font=("Arial", 10), fg=light_fg, bg=dark_bg, anchor="w").grid(row=row, column=0, sticky="w", pady=8)
+            if key == "port":
+                var = tk.StringVar(value=self.camera.get(key, "80"))
+                entry = tk.Entry(main_frame, textvariable=var, width=20, font=("Arial", 10), bg=entry_bg, fg=light_fg, relief="flat")
+                entry.grid(row=row, column=1, sticky="w", padx=5, pady=8)
+                self.entries[key] = var
+                # Кнопки для изменения порта
+                up_btn = tk.Button(main_frame, text="▲", command=lambda v=var: self.increment_port(v), bg=button_bg, fg=light_fg, width=2, height=1)
+                down_btn = tk.Button(main_frame, text="▼", command=lambda v=var: self.decrement_port(v), bg=button_bg, fg=light_fg, width=2, height=1)
+                up_btn.grid(row=row, column=2, padx=(0, 5))
+                down_btn.grid(row=row, column=3, padx=(0, 5))
+            elif key == "transport":
+                var = tk.StringVar(value=self.camera.get(key, "tcp"))
+                radio_frame = tk.Frame(main_frame, bg=dark_bg)
+                radio_frame.grid(row=row, column=1, columnspan=3, sticky="w", padx=5, pady=8)
+                tk.Radiobutton(radio_frame, text="UDP", variable=var, value="udp", bg=dark_bg, fg=light_fg, selectcolor="#4a4a4a", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
+                tk.Radiobutton(radio_frame, text="TCP", variable=var, value="tcp", bg=dark_bg, fg=light_fg, selectcolor="#4a4a4a", font=("Arial", 9)).pack(side=tk.LEFT, padx=5)
+                self.entries[key] = var
+            elif key == "source":
+                var = tk.StringVar(value=self.camera.get(key, "0"))
+                entry = tk.Entry(main_frame, textvariable=var, width=20, font=("Arial", 10), bg=entry_bg, fg=light_fg, relief="flat")
+                entry.grid(row=row, column=1, sticky="w", padx=5, pady=8)
+                self.entries[key] = var
+                # Кнопки для источника
+                up_btn = tk.Button(main_frame, text="▲", command=lambda v=var: self.increment_source(v), bg=button_bg, fg=light_fg, width=2, height=1)
+                down_btn = tk.Button(main_frame, text="▼", command=lambda v=var: self.decrement_source(v), bg=button_bg, fg=light_fg, width=2, height=1)
+                up_btn.grid(row=row, column=2, padx=(0, 5))
+                down_btn.grid(row=row, column=3, padx=(0, 5))
+            else:
+                var = tk.StringVar(value=self.camera.get(key, ""))
+                entry = tk.Entry(main_frame, textvariable=var, width=20, font=("Arial", 10), bg=entry_bg, fg=light_fg, relief="flat")
+                entry.grid(row=row, column=1, sticky="w", padx=5, pady=8)
+                self.entries[key] = var
             row += 1
 
-        # Получаем RTSP URL
+        # Отображение URL
+        url_frame = tk.Frame(main_frame, bg=dark_bg)
+        url_frame.grid(row=row, column=0, columnspan=4, sticky="ew", padx=5, pady=10)
+        tk.Label(url_frame, text="ONVIF Endpoint:", font=("Arial", 10), fg=light_fg, bg=dark_bg).pack(anchor="w")
+        self.url_label = tk.Label(url_frame, text="", font=("Courier", 9), fg="#00ccff", bg=dark_bg, wraplength=350, justify="left")
+        self.url_label.pack(anchor="w")
+
+        # Генерация ONVIF URL — ВЫЗЫВАЕМ ПОСЛЕ СОЗДАНИЯ url_label
+        self.update_onvif_url()
+
+        # Кнопки
+        btn_frame = tk.Frame(main_frame, bg=dark_bg)
+        btn_frame.grid(row=row+1, column=0, columnspan=4, pady=20)
+        tk.Button(btn_frame, text="📋 Копировать URL", command=self.copy_onvif_url, bg=button_bg, fg=light_fg, activebackground=button_active_bg, font=("Arial", 9)).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="📸 Сделать скриншот", command=self.load_screenshot, bg=button_bg, fg=light_fg, activebackground=button_active_bg, font=("Arial", 9)).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="💾 Сохранить", command=self.save_changes, bg="#4a9d4a", fg=light_fg, activebackground="#5da95d", font=("Arial", 9)).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="❌ Закрыть", command=self.window.destroy, bg="#b00000", fg=light_fg, activebackground="#c00000", font=("Arial", 9)).pack(side=tk.LEFT, padx=10)
+
+        # Фрейм для скриншота
+        screenshot_frame = tk.Frame(main_frame, bg=dark_bg, width=300, height=150, relief="sunken", bd=1)
+        screenshot_frame.grid(row=row+2, column=0, columnspan=4, pady=10)
+        screenshot_frame.grid_propagate(False)
+        self.screenshot_label = tk.Label(screenshot_frame, text="Нажмите 'Сделать скриншот'", font=("Arial", 9), bg=dark_bg, fg=light_fg)
+        self.screenshot_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    def increment_port(self, var):
+        try:
+            current = int(var.get())
+            var.set(str(current + 1))
+        except:
+            pass
+
+    def decrement_port(self, var):
+        try:
+            current = int(var.get())
+            var.set(str(current - 1))
+        except:
+            pass
+
+    def increment_source(self, var):
+        try:
+            current = int(var.get())
+            var.set(str(current + 1))
+        except:
+            pass
+
+    def decrement_source(self, var):
+        try:
+            current = int(var.get())
+            var.set(str(current - 1))
+        except:
+            pass
+
+    def update_onvif_url(self):
+        ip = self.entries["ip"].get().strip()
+        port = self.entries["port"].get().strip()
+        username = self.entries["username"].get().strip()
+        password = self.entries["password"].get().strip()
+        transport = self.entries["transport"].get().lower()
+        source = self.entries["source"].get().strip()
+
+        # Формируем URL
+        if not ip or not port:
+            self.onvif_url = "Ошибка: не указан адрес или порт"
+        else:
+            # Используем стандартный формат ONVIF
+            base_url = f"http://{ip}:{port}/onvif/device_service"
+            if username and password:
+                base_url = f"http://{username}:{password}@{ip}:{port}/onvif/device_service"
+            self.onvif_url = base_url
+
+        # Проверяем, существует ли url_label и живо ли окно
+        if hasattr(self, 'url_label') and self.url_label.winfo_exists():
+            self.url_label.config(text=self.onvif_url)
+
+    def copy_onvif_url(self):
+        if self.onvif_url and "Ошибка" not in self.onvif_url:
+            self.window.clipboard_clear()
+            self.window.clipboard_append(self.onvif_url)
+            self.window.update()
+            messagebox.showinfo("Копирование", "ONVIF URL скопирован в буфер обмена!")
+        else:
+            messagebox.showwarning("Ошибка", "Невозможно скопировать: URL не сформирован.")
+
+    def load_screenshot(self):
         model_name = self.camera.get("model", "")
         model_data = self.models.get(model_name, {})
         rtsp_template = model_data.get("rtsp_template", "")
-        rtsp_template_2 = model_data.get("rtsp_template_2", "")
-
-        # Формируем URL для основного потока
-        rtsp_url_1 = ""
-        rtsp_url_2 = ""
-        if rtsp_template and self.camera.get("ip"):
-            user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
-            password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
-            ip = self.camera.get("ip", "")
-            rtsp_url_1 = rtsp_template.format(user=user, password=password, ip=ip)
-
-        # Формируем URL для второго потока
-        if rtsp_template_2 and self.camera.get("ip"):
-            user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
-            password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
-            ip = self.camera.get("ip", "")
-            rtsp_url_2 = rtsp_template_2.format(user=user, password=password, ip=ip)
-
-        # Отображаем RTSP URL
-        if rtsp_url_1:
-            tk.Label(scrollable_frame, text="RTSP URL (Основной поток):", font=BOLD_FONT, anchor="w").grid(row=row, column=0, sticky="w", pady=5, padx=10)
-            url_label_1 = tk.Label(scrollable_frame, text=rtsp_url_1, font=("Courier", 10), fg="blue", anchor="w", wraplength=500, justify="left")
-            url_label_1.grid(row=row, column=1, sticky="w", pady=5, padx=10)
-            tk.Button(scrollable_frame, text="📋 Копировать", command=lambda: self.copy_to_clipboard(rtsp_url_1), font=LARGE_FONT).grid(row=row, column=2, padx=5)
-            row += 1
-
-        if rtsp_template_2:
-            tk.Label(scrollable_frame, text="RTSP URL (Доп. поток):", font=BOLD_FONT, anchor="w").grid(row=row, column=0, sticky="w", pady=5, padx=10)
-            url_label_2 = tk.Label(scrollable_frame, text=rtsp_url_2, font=("Courier", 10), fg="blue", anchor="w", wraplength=500, justify="left")
-            url_label_2.grid(row=row, column=1, sticky="w", pady=5, padx=10)
-            tk.Button(scrollable_frame, text="📋 Копировать", command=lambda: self.copy_to_clipboard(rtsp_url_2), font=LARGE_FONT).grid(row=row, column=2, padx=5)
-            row += 1
-
-        # Скриншот
-        tk.Label(scrollable_frame, text="Скриншот с камеры:", font=BOLD_FONT).grid(row=row, column=0, columnspan=3, sticky="w", pady=(20,5), padx=10)
-        row += 1
-
-        self.screenshot_frame = tk.Frame(scrollable_frame, width=720, height=405, relief="sunken", bd=1)
-        self.screenshot_frame.grid(row=row, column=0, columnspan=3, padx=10, pady=5)
-        self.screenshot_frame.grid_propagate(False)
-        self.screenshot_label = tk.Label(self.screenshot_frame, text="Загрузка скриншота...", font=LARGE_FONT)
-        self.screenshot_label.place(relx=0.5, rely=0.5, anchor="center")
-        row += 1
-
-        # Кнопка для сохранения скриншота
-        tk.Button(scrollable_frame, text="💾 Сохранить скриншот", command=self.save_current_screenshot, font=LARGE_FONT, bg="#f0d0a0").grid(row=row, column=0, columnspan=3, pady=10)
-        row += 1
-
-        # Кнопка для экспорта в PDF
-        tk.Button(scrollable_frame, text="📄 Выгрузить в PDF", command=self.export_to_pdf, font=LARGE_FONT, bg="#a0d0f0").grid(row=row, column=0, columnspan=3, pady=20)
-        row += 1
-
-        # Кнопка закрытия
-        tk.Button(scrollable_frame, text="❌ Закрыть", command=self.window.destroy, font=LARGE_FONT, bg="#f0a0a0").grid(row=row, column=0, columnspan=3, pady=10)
-
-        # Загружаем скриншот
-        self.load_screenshot(rtsp_url_1)
-
-    def copy_to_clipboard(self, text):
-        self.window.clipboard_clear()
-        self.window.clipboard_append(text)
-        self.window.update()
-        messagebox.showinfo("Копирование", "URL скопирован в буфер обмена!")
-
-    def load_screenshot(self, rtsp_url):
-        if not rtsp_url:
+        if not rtsp_template or not self.camera.get("ip"):
             if self.screenshot_label and self.screenshot_label.winfo_exists():
-                self.screenshot_label.config(text="❌ Не удалось загрузить скриншот: нет RTSP URL")
+                self.screenshot_label.config(text="❌ Не удалось загрузить скриншот: нет шаблона RTSP или IP")
             return
-
+        user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
+        password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
+        ip = self.camera.get("ip", "")
+        rtsp_url_for_screenshot = rtsp_template.format(user=user, password=password, ip=ip)
         if self.screenshot_label and self.screenshot_label.winfo_exists():
             self.screenshot_label.config(text="Загрузка скриншота...")
-
-        pil_image = capture_rtsp_frame(rtsp_url)
+        pil_image = capture_rtsp_frame(rtsp_url_for_screenshot)
         if pil_image:
-            # Сохраняем скриншот
-            save_camera_screenshot(rtsp_url, self.camera, self.data_dir)
-            # Сохраняем ссылку на изображение для экспорта в PDF
-            self.current_pil_image = pil_image.copy()
-            # Масштабируем для отображения
-            pil_image.thumbnail((720, 405))
+            save_camera_screenshot(rtsp_url_for_screenshot, self.camera, self.data_dir)
+            pil_image.thumbnail((300, 150))
             self.photo = ImageTk.PhotoImage(pil_image)
             if self.screenshot_label and self.screenshot_label.winfo_exists():
                 self.screenshot_label.config(image=self.photo, text="")
@@ -863,247 +935,16 @@ class CameraDossierWindow:
             if self.screenshot_label and self.screenshot_label.winfo_exists():
                 self.screenshot_label.config(text="❌ Не удалось получить кадр с камеры")
 
-    def save_current_screenshot(self):
-        if not hasattr(self, 'photo') or self.photo is None:
-            messagebox.showwarning("Ошибка", "Нет скриншота для сохранения.")
-            return
-
-        filepath = filedialog.asksaveasfilename(
-            defaultextension=".jpg",
-            filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")],
-            title="Сохранить скриншот"
-        )
-
-        if not filepath:
-            return
-
-        try:
-            if not hasattr(self, 'current_pil_image') or self.current_pil_image is None:
-                raise Exception("Исходное изображение не найдено.")
-
-            if filepath.lower().endswith('.png'):
-                self.current_pil_image.save(filepath, "PNG")
-            else:
-                self.current_pil_image.save(filepath, "JPEG", quality=90)
-
-            messagebox.showinfo("Успех", f"Скриншот успешно сохранен:\n{filepath}")
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить скриншот:\n{str(e)}")
-
-    def export_to_pdf(self):
-        """Экспортирует досье одной камеры в PDF."""
-        filepath = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            title="Сохранить досье в PDF"
-        )
-
-        if not filepath:
-            return
-
-        try:
-            pdf = FPDF()
-            pdf.add_page()
-
-            # Регистрация шрифта
-            font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ChakraPetch-Regular.ttf")
-            if os.path.exists(font_path):
-                try:
-                    pdf.add_font("ChakraPetch", "", font_path, uni=True)
-                    pdf.set_font("ChakraPetch", size=12)
-                except:
-                    pdf.set_font("Arial", size=12)
-            else:
-                pdf.set_font("Arial", size=12)
-
-            # Заголовок
-            pdf.cell(0, 15, txt="📄 Досье IP камеры", ln=True, align='C')
-            pdf.ln(10)
-
-            # Основная информация
-            info_fields = [
-                ("Линия", self.camera.get("line", "")),
-                ("Модель", self.camera.get("model", "")),
-                ("IP-адрес", self.camera.get("ip", "")),
-                ("Логин Web", self.camera.get("web_user", "")),
-                ("Пароль Web", self.camera.get("web_pass", "")),
-                ("Логин потока", self.camera.get("stream_user", "")),
-                ("Пароль потока", self.camera.get("stream_pass", "")),
-                ("Серийный номер", self.camera.get("sn", "")),
-                ("MAC-адрес", self.camera.get("mac", "")),
-                ("Прошивка", self.camera.get("fw", "")),
-                ("Комментарий", self.camera.get("comment", ""))
-            ]
-
-            for label, value in info_fields:
-                pdf.set_font("", "B")
-                pdf.cell(50, 10, txt=f"{label}:", ln=False)
-                pdf.set_font("")
-                pdf.cell(0, 10, txt=value, ln=True)
-
-            pdf.ln(5)
-
-            # RTSP URL
-            model_name = self.camera.get("model", "")
-            model_data = self.models.get(model_name, {})
-            rtsp_template = model_data.get("rtsp_template", "")
-            rtsp_template_2 = model_data.get("rtsp_template_2", "")
-
-            if rtsp_template and self.camera.get("ip"):
-                user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
-                password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
-                ip = self.camera.get("ip", "")
-                rtsp_url_1 = rtsp_template.format(user=user, password=password, ip=ip)
-                pdf.set_font("", "B")
-                pdf.cell(50, 10, txt="RTSP (Основной):", ln=False)
-                pdf.set_font("")
-                pdf.cell(0, 10, txt=rtsp_url_1, ln=True)
-
-            if rtsp_template_2 and self.camera.get("ip"):
-                user = urllib.parse.quote(self.camera.get("stream_user", "admin"), safe='@$')
-                password = urllib.parse.quote(self.camera.get("stream_pass", "admin"), safe='@$')
-                ip = self.camera.get("ip", "")
-                rtsp_url_2 = rtsp_template_2.format(user=user, password=password, ip=ip)
-                pdf.set_font("", "B")
-                pdf.cell(50, 10, txt="RTSP (Доп. поток):", ln=False)
-                pdf.set_font("")
-                pdf.cell(0, 10, txt=rtsp_url_2, ln=True)
-
-            pdf.ln(10)
-
-            # Вставка скриншота
-            if hasattr(self, 'current_pil_image') and self.current_pil_image is not None:
-                # Создаем временный файл
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
-                    temp_img_path = tmp_file.name
-                # Сохраняем изображение
-                self.current_pil_image.save(temp_img_path, "JPEG", quality=95)
-                # Вставляем в PDF
-                try:
-                    pdf.image(temp_img_path, x=10, y=None, w=190)  # Ширина 190 мм
-                except Exception as img_e:
-                    print(f"Ошибка вставки изображения в PDF: {img_e}")
-                    pdf.cell(0, 10, txt="Скриншот: Не удалось вставить", ln=True)
-                finally:
-                    if os.path.exists(temp_img_path):
-                        os.remove(temp_img_path)
-            else:
-                pdf.cell(0, 10, txt="Скриншот: Недоступен", ln=True)
-
-            pdf.output(filepath)
-            messagebox.showinfo("Экспорт PDF", f"Досье успешно экспортировано в PDF:\n{filepath}")
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось создать PDF:\n{str(e)}")
-
-class CameraSelectionWindow:
-    """Окно для выбора камеры из списка по критериям поиска."""
-    def __init__(self, parent, cameras, models, data_dir, callback):
-        self.parent = parent
-        self.cameras = cameras
-        self.models = models
-        self.data_dir = data_dir
-        self.callback = callback
-        self.filtered_cameras = cameras.copy()
-        self.window = tk.Toplevel(parent)
-        self.window.title("Выберите камеру для формирования досье")
-        self.window.geometry("800x600")
-        center_window(self.window, parent)
-        self.window.transient(parent)
-        self.window.grab_set()
-
-        # Поле поиска
-        search_frame = tk.Frame(self.window, pady=10, padx=10)
-        search_frame.pack(fill=tk.X)
-        tk.Label(search_frame, text="🔍 Поиск (по Линии, IP, Комментарию):", font=LARGE_FONT).pack(side=tk.LEFT, padx=(0, 5))
-        self.search_var = tk.StringVar()
-        self.search_var.trace("w", self.on_search_change)
-        search_entry = tk.Entry(search_frame, textvariable=self.search_var, width=50, font=LARGE_FONT)
-        search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-
-        # Таблица
-        table_frame = tk.Frame(self.window)
-        table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-
-        columns = ("line", "model", "ip", "comment")
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
-        self.tree.heading("line", text="Линия", command=lambda: self.sort_column("line", False))
-        self.tree.heading("model", text="Модель", command=lambda: self.sort_column("model", False))
-        self.tree.heading("ip", text="IP", command=lambda: self.sort_column("ip", False))
-        self.tree.heading("comment", text="Комментарий", command=lambda: self.sort_column("comment", False))
-
-        self.tree.column("line", width=200, anchor="w")
-        self.tree.column("model", width=200, anchor="w")
-        self.tree.column("ip", width=150, anchor="w")
-        self.tree.column("comment", width=300, anchor="w")
-
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
-
-        # Кнопки
-        btn_frame = tk.Frame(self.window, pady=10)
-        btn_frame.pack(fill=tk.X, padx=10)
-        tk.Button(btn_frame, text="📄 Сформировать досье", command=self.select_camera, font=LARGE_FONT, bg="#a0d0f0").pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="❌ Отмена", command=self.window.destroy, font=LARGE_FONT).pack(side=tk.RIGHT, padx=5)
-
-        self.refresh_table()
-
-        # Двойной клик для выбора
-        self.tree.bind("<Double-1>", lambda e: self.select_camera())
-
-    def sort_column(self, col, reverse):
-        l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
-        try:
-            l.sort(key=lambda t: float(t[0]) if t[0].replace('.', '').isdigit() else t[0].lower(), reverse=reverse)
-        except ValueError:
-            l.sort(key=lambda t: t[0].lower(), reverse=reverse)
-        for index, (val, k) in enumerate(l):
-            self.tree.move(k, '', index)
-        self.tree.heading(col, command=lambda: self.sort_column(col, not reverse))
-
-    def on_search_change(self, *_):
-        query = self.search_var.get().lower().strip()
-        if not query:
-            self.filtered_cameras = self.cameras.copy()
-        else:
-            self.filtered_cameras = [
-                cam for cam in self.cameras
-                if query in cam.get("line", "").lower() or
-                   query in cam.get("ip", "").lower() or
-                   query in cam.get("comment", "").lower()
-            ]
-        self.refresh_table()
-
-    def refresh_table(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        for idx, cam in enumerate(self.filtered_cameras):
-            values = (
-                cam.get("line", ""),
-                cam.get("model", ""),
-                cam.get("ip", ""),
-                cam.get("comment", "")
-            )
-            self.tree.insert("", "end", iid=str(idx), values=values)
-
-    def select_camera(self):
-        selection = self.tree.selection()
-        if not selection:
-            messagebox.showwarning("Выбор", "Пожалуйста, выберите камеру из списка.")
-            return
-        idx = int(selection[0])
-        if idx >= len(self.filtered_cameras):
-            return
-        selected_camera = self.filtered_cameras[idx]
+    def save_changes(self):
+        # Обновляем данные камеры
+        for key, var in self.entries.items():
+            self.camera[key] = var.get().strip()
+        self.cameras[self.camera_index] = self.camera
+        save_cameras(self.cameras, self.data_dir)
+        self.app.refresh_table()
+        messagebox.showinfo("Успех", "Данные камеры сохранены")
         self.window.destroy()
-        self.callback(selected_camera)
+
 
 class CameraApp:
     def __init__(self, root):
@@ -1114,6 +955,7 @@ class CameraApp:
         self.style.configure("Treeview", font=LARGE_FONT, rowheight=25)
         self.style.configure("Treeview.Heading", font=BOLD_FONT)
         self.settings = load_settings()
+        # ✅ ЗАГРУЗКА ДАННЫХ: Используем каталог данных
         self.data_dir = self.settings["data_dir_path"]
         self.models = load_models(self.data_dir)
         self.cameras = load_cameras(self.data_dir)
@@ -1130,9 +972,10 @@ class CameraApp:
         tk.Button(top_frame, text="📋 Модели", command=self.open_models_tab, font=LARGE_FONT, relief="groove").pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="📄 Выгрузка в PDF", command=self.export_pdf, font=LARGE_FONT, relief="groove").pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="📊 Экспорт в Excel", command=self.export_excel, font=LARGE_FONT, relief="groove").pack(side=tk.LEFT, padx=5)
-        # ✅ ДОБАВЛЕНА КНОПКА "Досье"
-        tk.Button(top_frame, text="📄 Досье", command=self.open_camera_dossier, font=LARGE_FONT, relief="groove", bg="#d0d0f0").pack(side=tk.LEFT, padx=5)
+        # ✅ ДОБАВЛЕНА КНОПКА "ГАЛЕРЕЯ"
         tk.Button(top_frame, text="🖼️ Галерея", command=self.generate_gallery, font=LARGE_FONT, relief="groove", bg="#f0d0a0").pack(side=tk.LEFT, padx=5)
+        # ✅ ДОБАВЛЕНА КНОПКА "Скриншоты всех"
+        tk.Button(top_frame, text="📸 Скриншоты всех", command=self.take_all_screenshots, font=LARGE_FONT, relief="groove", bg="#d0a0f0").pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="ℹ️ Инфо", command=self.show_info, font=LARGE_FONT, relief="groove").pack(side=tk.RIGHT, padx=5)
 
         search_frame = tk.Frame(root, pady=10, padx=10)
@@ -1183,9 +1026,11 @@ class CameraApp:
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
         self.tree.grid(row=0, column=0, sticky='nsew')
         vsb.grid(row=0, column=1, sticky='ns')
         hsb.grid(row=1, column=0, sticky='ew')
+
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
 
@@ -1200,6 +1045,7 @@ class CameraApp:
 
         self.status_bar = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W, font=LARGE_FONT)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.update_status_bar()
 
     def sort_column(self, col, reverse):
@@ -1251,6 +1097,7 @@ class CameraApp:
             ("Прошивка", "fw", ""),
             ("Комментарий", "comment", "")
         ]
+
         entries = {}
         row = 0
         for label_text, key, default in fields:
@@ -1259,16 +1106,6 @@ class CameraApp:
             entry = tk.Entry(add_frame, textvariable=var, width=40, font=LARGE_FONT)
             entry.grid(row=row, column=1, sticky="w", padx=10, pady=5)
             entries[key] = var
-            # Универсальная привязка для Ctrl+C/V на русской и английской раскладке
-            def handle_ctrl_c_v(event, entry_ref=entry):
-                if event.state & 0x4:  # Ctrl нажат
-                    if event.keycode == 54:  # Клавиша 'C' / 'С'
-                        entry_ref.event_generate("<<Copy>>")
-                        return "break"
-                    elif event.keycode == 58:  # Клавиша 'V' / 'М'
-                        entry_ref.event_generate("<<Paste>>")
-                        return "break"
-            entry.bind("<Key>", handle_ctrl_c_v)
             row += 1
 
         tk.Label(add_frame, text="Модель:", font=LARGE_FONT, anchor="w").grid(row=row, column=0, sticky="w", pady=5)
@@ -1280,6 +1117,7 @@ class CameraApp:
 
         btn_frame = tk.Frame(add_frame)
         btn_frame.grid(row=row, column=0, columnspan=2, pady=20)
+
         def save_new_camera():
             new_cam = {key: var.get().strip() for key, var in entries.items()}
             if not new_cam["model"]:
@@ -1341,10 +1179,12 @@ class CameraApp:
                 path_var.set(new_dir)
                 self.settings["data_dir_path"] = new_dir
                 save_settings(self.settings)
+                # Проверяем и создаем файлы, если их нет
                 created = ensure_data_files_exist(new_dir)
                 if created:
                     msg = "Созданы новые файлы данных:\n" + "\n".join(created)
                     messagebox.showinfo("Инициализация", msg)
+                # Перезагружаем все данные
                 self.data_dir = new_dir
                 self.models = load_models(self.data_dir)
                 self.cameras = load_cameras(self.data_dir)
@@ -1380,6 +1220,7 @@ class CameraApp:
             self.model_listbox.insert(tk.END, model)
 
         tk.Label(right_frame, text="Детали модели:", font=BOLD_FONT).pack(anchor="w", pady=(0,10))
+
         tk.Label(right_frame, text="Название модели:", font=LARGE_FONT).pack(anchor="w")
         self.model_name_var = tk.StringVar()
         name_entry = tk.Entry(right_frame, textvariable=self.model_name_var, width=50, font=LARGE_FONT)
@@ -1513,10 +1354,12 @@ class CameraApp:
             if not bbox:
                 continue
             x, y, width, height = bbox
-            # Кнопка RTSP занимает всю ячейку
             rtsp_btn = ttk.Button(self.tree, text="RTSP", width=5, command=lambda c=child: self.open_rtsp_detail(c))
-            rtsp_btn.place(x=x+2, y=y+2, width=width-4, height=height-4)
+            rtsp_btn.place(x=x+2, y=y+2, width=(width//2)-4, height=height-4)
             self.rtsp_buttons.append(rtsp_btn)
+            onvif_btn = ttk.Button(self.tree, text="ONVIF", width=5, command=lambda c=child: self.open_onvif_detail(c))
+            onvif_btn.place(x=x+(width//2)+2, y=y+2, width=(width//2)-4, height=height-4)
+            self.rtsp_buttons.append(onvif_btn)
 
     def open_rtsp_detail(self, item_id):
         idx = int(item_id)
@@ -1532,6 +1375,38 @@ class CameraApp:
                 break
         if real_idx is not None:
             RTSPDetailWindow(self.root, real_idx, self.cameras, self.models, self, self.data_dir)
+
+    # ✅ ЗАМЕНЕННЫЙ МЕТОД: Открывает новый диалог OnvifConnectionDialog
+    def open_onvif_detail(self, item_id):
+        idx = int(item_id)
+        if idx >= len(self.filtered_cameras):
+            return
+        filtered_cam = self.filtered_cameras[idx]
+        real_idx = None
+        for i, cam in enumerate(self.cameras):
+            if (cam.get("line") == filtered_cam.get("line") and
+                cam.get("ip") == filtered_cam.get("ip") and
+                cam.get("model") == filtered_cam.get("model")):
+                real_idx = i
+                break
+        if real_idx is not None:
+            # Создаем объект камеры с полями ONVIF
+            onvif_cam = {
+                "ip": filtered_cam.get("ip", ""),
+                "port": filtered_cam.get("port", "80"),
+                "username": filtered_cam.get("web_user", ""),
+                "password": filtered_cam.get("web_pass", ""),
+                "transport": "tcp",
+                "source": "0",
+                "model": filtered_cam.get("model", ""),
+                "line": filtered_cam.get("line", "")
+            }
+            # Заменяем камеру в списке на временную
+            self.cameras[real_idx] = onvif_cam
+            # Открываем диалог
+            OnvifConnectionDialog(self.root, real_idx, self.cameras, self.models, self, self.data_dir)
+            # Восстанавливаем оригинал
+            self.cameras[real_idx] = filtered_cam
 
     def on_search_change(self, *_):
         query = self.search_var.get().lower().strip()
@@ -1617,16 +1492,6 @@ class CameraApp:
         entry_var = tk.StringVar(value=current_value)
         entry = tk.Entry(edit_win, textvariable=entry_var, font=LARGE_FONT, width=40)
         entry.pack(pady=5, padx=20)
-        # Универсальная привязка для Ctrl+C/V на русской и английской раскладке
-        def handle_ctrl_c_v(event):
-            if event.state & 0x4:  # Ctrl нажат
-                if event.keycode == 54:  # Клавиша 'C' / 'С'
-                    entry.event_generate("<<Copy>>")
-                    return "break"
-                elif event.keycode == 58:  # Клавиша 'V' / 'М'
-                    entry.event_generate("<<Paste>>")
-                    return "break"
-        entry.bind("<Key>", handle_ctrl_c_v)
         entry.select_range(0, tk.END)
         entry.focus_set()
         def save_edit():
@@ -1698,17 +1563,20 @@ class CameraApp:
         filepath = filedialog.asksaveasfilename(defaultextension=".pdf",
                                                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
         if filepath:
+            # Создаем окно ожидания
             loading_win = LoadingWindow(self.root, "Экспорт PDF", "Идет создание PDF-документа...")
-            self.root.update()
+            self.root.update()  # Обновляем интерфейс, чтобы окно появилось
             try:
                 export_to_pdf(self.cameras, self.data_dir, filepath)
             finally:
-                loading_win.destroy()
+                loading_win.destroy() # Убедимся, что окно закроется даже при ошибке
 
+    # ✅ НОВЫЙ МЕТОД ДЛЯ ГЕНЕРАЦИИ ГАЛЕРЕИ
     def generate_gallery(self):
         filepath = filedialog.asksaveasfilename(defaultextension=".jpg",
                                                 filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")])
         if filepath:
+            # Создаем окно ожидания
             loading_win = LoadingWindow(self.root, "Создание галереи", "Идет формирование галереи скриншотов...")
             self.root.update()
             try:
@@ -1716,37 +1584,67 @@ class CameraApp:
             finally:
                 loading_win.destroy()
 
-    # ✅ НОВЫЙ МЕТОД: Открытие окна выбора камеры для формирования досье
-    def open_camera_dossier(self):
-        """Открывает окно выбора камеры для формирования досье."""
-        CameraSelectionWindow(self.root, self.cameras, self.models, self.data_dir, self.show_camera_dossier)
-
-    # ✅ НОВЫЙ МЕТОД: Отображение досье выбранной камеры
-    def show_camera_dossier(self, selected_camera):
-        """Открывает окно досье для выбранной камеры."""
-        CameraDossierWindow(self.root, selected_camera, self.models, self.data_dir)
+    # ✅ НОВЫЙ МЕТОД: СДЕЛАТЬ СКРИНШОТЫ ВСЕХ КАМЕР
+    def take_all_screenshots(self):
+        """Делает и сохраняет скриншоты всех камер."""
+        if not self.cameras:
+            messagebox.showwarning("Скриншоты", "Нет камер в базе.")
+            return
+        # Создаем окно ожидания
+        loading_win = LoadingWindow(self.root, "Скриншоты", "Идет создание скриншотов всех камер...")
+        self.root.update()
+        try:
+            models = load_models(self.data_dir)
+            success_count = 0
+            total_count = len(self.cameras)
+            for cam in self.cameras:
+                rtsp_url = ""
+                model_name = cam.get("model", "")
+                model_data = models.get(model_name, {})
+                rtsp_template = model_data.get("rtsp_template", "")
+                if rtsp_template and cam.get("ip"):
+                    user = urllib.parse.quote(cam.get("stream_user", "admin"), safe='@$')
+                    password = urllib.parse.quote(cam.get("stream_pass", "admin"), safe='@$')
+                    ip = cam.get("ip", "")
+                    rtsp_url = rtsp_template.format(user=user, password=password, ip=ip)
+                if rtsp_url:
+                    saved_path = save_camera_screenshot(rtsp_url, cam, self.data_dir)
+                    if saved_path:
+                        success_count += 1
+            screenshot_dir = get_screenshots_dir(self.data_dir)
+            messagebox.showinfo("Скриншоты", f"Обработано {total_count} камер. Успешно сохранено: {success_count} скриншотов.\nФайлы находятся в папке: {screenshot_dir}")
+        finally:
+            loading_win.destroy()
 
     def show_info(self):
+        """Показывает окно с информацией о программе, включая логотип и увеличенный шрифт."""
         info_win = tk.Toplevel(self.root)
         info_win.title("Информация о программе")
         info_win.geometry("400x300")
         info_win.transient(self.root)
         info_win.grab_set()
         center_window(info_win, self.root)
+        # Путь к иконке
         ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ico.jpg")
         try:
+            # Загружаем и изменяем размер изображения
             pil_image = Image.open(ico_path)
             pil_image.thumbnail((120, 120), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(pil_image)
+            # Метка для изображения
             img_label = tk.Label(info_win, image=photo)
-            img_label.image = photo
+            img_label.image = photo  # Сохраняем ссылку
             img_label.pack(pady=15)
         except Exception as e:
+            # Если изображение не найдено, показываем текстовую метку
             tk.Label(info_win, text="Логотип", font=("Arial", 16, "bold")).pack(pady=15)
             print(f"Не удалось загрузить ico.jpg: {e}")
-        info_text = "Программа \"Datacam\"\nВерсия 0.5\nАвтор: Разин Г.В.\n© 2025"
+        # Информационный текст с увеличенным шрифтом
+        info_text = "Программа \"Datacam\"\nВерсия 0.3\nАвтор: Разин Г.В.\n© 2025"
         tk.Label(info_win, text=info_text, font=("Arial", 14), justify=tk.CENTER).pack(pady=10)
+        # Кнопка закрытия
         tk.Button(info_win, text="Закрыть", command=info_win.destroy, font=LARGE_FONT, width=15).pack(pady=20)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
